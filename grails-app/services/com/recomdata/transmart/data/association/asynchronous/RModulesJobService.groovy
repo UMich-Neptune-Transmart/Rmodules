@@ -154,6 +154,7 @@ class RModulesJobService implements Job {
 
 	private void runConversions()
 	{
+        println("=========== runConversion ==============")
 		try {
 		//Get the data based on the job configuration.
 		def conversionSteps = jobDataMap.get("conversionSteps")
@@ -172,8 +173,10 @@ class RModulesJobService implements Job {
 
 		}
 		} catch (Exception e) {
+            e.printStackTrace()
 			throw new Exception('Job Failed while running Conversions. '+e?.message, e)
 		}
+        println("=========== runConversion ==============")
 	}
 
 	private void runAnalysis()
@@ -192,6 +195,7 @@ class RModulesJobService implements Job {
 					String zipFileLoc = (new File(jobTmpDirectory))?.getParent() + File.separator;
 					finalOutputFile = zipService.zipFolder(jobTmpDirectory, zipFileLoc + jobDataMap.get("jobName") + ".zip")
 					try {
+                        println("---------------------------------------------------")
 						File outputFile = new File(zipFileLoc+finalOutputFile);
 						if (outputFile.isFile()) {
 
@@ -271,7 +275,7 @@ class RModulesJobService implements Job {
 
 	private void runRCommandList(stepList)
 	{
-
+        println("====================== runRCommandList ==============")
 		//We need to get the study ID for this study so we can know the path to the clinical output file.
 		def studies = jobDataMap.get("studyAccessions")
 
@@ -298,13 +302,17 @@ class RModulesJobService implements Job {
 		stepList.each { String currentCommand ->
             def reformattedCommand
 
-			//Replace the working directory flag if it exists in the string.
+            println("Attempting input Command : " + currentCommand)
+
+            //Replace the working directory flag if it exists in the string.
 			reformattedCommand = currentCommand.replace("||PLUGINSCRIPTDIRECTORY||",
                     RUtil.escapeRStringContent(config.RModules.pluginScriptDirectory))
 			reformattedCommand = reformattedCommand.replace("||TEMPFOLDERDIRECTORY||",
                     RUtil.escapeRStringContent(jobTmpDirectory + "subset1_" + studies[0] + File.separator))
 			reformattedCommand = reformattedCommand.replace("||TOPLEVELDIRECTORY||",
                     RUtil.escapeRStringContent(jobTmpDirectory))
+
+            println("Prior to variableMap loop: " + reformattedCommand)
 
 			//We need to loop through the variable map and do string replacements on the R command.
 			jobDataMap.get("variableMap").each { variableItem ->
@@ -313,11 +321,12 @@ class RModulesJobService implements Job {
 
                 valueFromForm = valueFromForm ? valueFromForm.trim() : ''
                 valueFromForm = RUtil.escapeRStringContent(valueFromForm)
-
+                println(variableItem.key + " = " + valueFromForm)
                 reformattedCommand = reformattedCommand.replace(variableItem.key, valueFromForm)
 		    }
 
 			log.info("Attempting following R Command : " + reformattedCommand)
+            println("Attempting following R Command : " + reformattedCommand)
 
 			REXP r = c.parseAndEval("try("+reformattedCommand+",silent=TRUE)");
 

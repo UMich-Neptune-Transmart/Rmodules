@@ -162,17 +162,17 @@ class RModulesService {
 		jobDataMap.put("analysis", params.analysis)
 		jobDataMap.put("userName", userName)
 		jobDataMap.put("jobName", params.jobName)
-		
+
 		//Each subset needs a name and a RID. Put this info in a hash.
 		def resultInstanceIdHashMap = [:]
 		resultInstanceIdHashMap["subset1"] = params.result_instance_id1
 		resultInstanceIdHashMap["subset2"] = params.result_instance_id2
 		jobDataMap.put("result_instance_ids",resultInstanceIdHashMap);
 		jobDataMap.put("studyAccessions", i2b2ExportHelperService.findStudyAccessions(resultInstanceIdHashMap.values()) )
-		
+
 		//We need to get module information.
 		def pluginModuleInstance = pluginService.findPluginModuleByModuleName(params.analysis)
-		
+
 		def moduleMap = null
 		def moduleMapStr = pluginModuleInstance?.paramsStr
 		
