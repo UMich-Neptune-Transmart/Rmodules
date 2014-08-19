@@ -50,9 +50,9 @@
 		${geneListTable}
 		
 		<br />
-		<br />	
-		
-		<a class='AnalysisLink' href="${zipLink}">Download raw R data</a>
+		<br />
+
+        <!-- <a class='AnalysisLink' href="${zipLink}">Download no raw R data</a> -->
 		
 	</form>
 </body>

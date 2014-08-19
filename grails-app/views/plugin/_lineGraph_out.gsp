@@ -23,9 +23,9 @@
 	    	<img src='${location}'  width="900" height="600"/> <br />
 		</g:each>
 		
-		<br /><br />	
-		
-		<a class='AnalysisLink' href="${zipLocation}">Download raw R data</a>
+		<br /><br />
+
+        <!-- <a class='AnalysisLink' href="${zipLink}">Download no raw R data</a> -->
 		
 	</form>
 </body>

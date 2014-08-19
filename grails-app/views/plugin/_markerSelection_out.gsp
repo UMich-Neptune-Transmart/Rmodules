@@ -50,7 +50,7 @@
 		${markerSelectionTable}
 		
 		<br />
-		<a class='AnalysisLink' href="${zipLink}">Download raw R data</a>
+        <!-- <a class='AnalysisLink' href="${zipLink}">Download no raw R data</a> -->
 	</form>
 </body>
 
