@@ -88,7 +88,7 @@ function createAdvancedWorkflowMenu(result) {
 				hidden : false,
 				id : 'savetopdfbtn',
 				handler: function(){
-					generatePdfFromHTML('analysisOutput', 'DataAssociation.pdf');
+					generatePdfFromHTML('dataAssociationContent', 'DataAssociation.pdf');
 				}
 			}
 		);
