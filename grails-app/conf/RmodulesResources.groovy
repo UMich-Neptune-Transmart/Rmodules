@@ -70,5 +70,8 @@ modules = {
         resource url:"/js/geneprint/main-boilerplate.js"
         resource url:"/js/plugin/Geneprint.js"
     }
+    histogram {
+        resource url:"/js/plugin/Histogram.js"
+    }
 }
 
