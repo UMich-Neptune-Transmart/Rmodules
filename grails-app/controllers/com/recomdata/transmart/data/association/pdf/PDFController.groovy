@@ -39,16 +39,16 @@ class PDFController {
 		// parse our markup into an xml Document
 		try {
 			String htmlStr = params.htmlStr
-			String pathStr =  grailsApplication.config.RModules.pdf.applicationPath
+			String pathStr =  grailsApplication.config.RModules.temporaryImageFolder
 			String css = pathStr+"css/datasetExplorer.css";
 			StringBuffer buf = new StringBuffer();
 			buf.append("<html><head><link rel='stylesheet' type='text/css' href='")
 			.append(css).append("' media='print'/></head><body>").append(htmlStr)
 			.append("</body></html>");
-			
+
 			String html = null;
 			if (StringUtils.isNotEmpty(pathStr)) {
-				html = StringUtils.replace(buf.toString(), '/transmart/images/analysisFiles', "file://"+pathStr+'images/tempImages')
+				html = StringUtils.replace(buf.toString(), '/transmart/images/analysisFiles', "file://"+pathStr)
 				log.info "generatePDF replacing '"+buf.toString()+"' ==> '${html}'"
 			} else {
 				html = buf.toString()
