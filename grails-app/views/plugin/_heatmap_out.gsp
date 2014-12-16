@@ -13,11 +13,7 @@
     </g:each>
 
     <div>
-<<<<<<< HEAD
         <!-- <a href="${resource(file: zipLink)}" class="downloadLink">Download raw R data</a> -->
-=======
-        <a href="${resource(file: zipLink)}" class="downloadLink">Download raw R data</a>
->>>>>>> 0a6c5bd5bcddfc61051af5d0b9156efdb53d7c4b
     </div>
 </p>
 

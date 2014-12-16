@@ -91,7 +91,7 @@
 			</tr>			
 			<tr>
 				<td>
-					<a class='AnalysisLink' href="${zipLink}">Download raw R data</a>
+					<!-- <a class='AnalysisLink' href="${zipLink}">Download raw R data</a> -->
 				</td>
 			</tr>	
 			<tr>
