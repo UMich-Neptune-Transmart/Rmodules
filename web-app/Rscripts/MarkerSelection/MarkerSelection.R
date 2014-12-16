@@ -22,7 +22,8 @@ MS.loader <- function(
 input.filename,
 output.file ="CMS.TXT",
 numberOfPermutations = 5000,
-numberOfMarkers = 100
+numberOfMarkers = 100,
+aggregate.probes = FALSE
 )
 {
 	##########################################
@@ -34,7 +35,11 @@ numberOfMarkers = 100
 	library(plyr)
 	library(multtest)
 	library(reshape2)
+	library(limma)
 	
+	#The Multiple hypothesis correction method used for DE analysis
+	mhcMethod = "BH"
+  
 	#---------------------
 	#Prepare raw data.
 	
@@ -45,6 +50,11 @@ numberOfMarkers = 100
 	mRNAData$PROBE.ID 		<- gsub("^\\s+|\\s+$", "",mRNAData$PROBE.ID)
 	mRNAData$GENE_SYMBOL 	<- gsub("^\\s+|\\s+$", "",mRNAData$GENE_SYMBOL)
 	mRNAData$PATIENT.ID   	<- gsub("^\\s+|\\s+$", "",mRNAData$PATIENT.ID)
+	
+    if (aggregate.probes) {
+        # probe aggregation function adapted from dataBuilder.R to heatmap's specific data-formats
+        mRNAData <- MS.probe.aggregation(mRNAData, collapseRow.method = "MaxMean", collapseRow.selectFewestMissing = TRUE)
+    }
 
 	#Create a data.frame with unique probe/gene ids.
 	geneStatsData <- data.frame(mRNAData$PROBE.ID,mRNAData$GENE_SYMBOL);
@@ -80,143 +90,75 @@ numberOfMarkers = 100
 	#---------------------
 	
 	#---------------------
-	#Perform multiple hypothesis testing.
-	print("MULTIPLE HYPOTHESIS TESTING");
+	#Fitting linear model with limma
+	print("LINEAR MODEL")
 	#Remove the gene symbol column.
 	coercedDataWithoutGroup <- data.matrix(subset(coercedData, select=-c(GENE_SYMBOL,PROBE.ID)))
+	rownames(coercedDataWithoutGroup)=coercedData$PROBE.ID  
 
-	#Get a vector representing our subsets.
-	classVector <- colnames(coercedDataWithoutGroup)
-	classVector <- gsub("^S1.*","0",classVector)
-	classVector <- gsub("^S2.*","1",classVector)
-	classVector <- as.numeric(classVector)
+	#Creating a named vector for mapping PROBE.ID to GENE.SYMBOL 
+	gene.symbols=coercedData$GENE_SYMBOL
+	names(gene.symbols)=coercedData$PROBE.ID
+  
+	#Get the vectors representing our subsets.
+	# ... for S1
+	classVector_S2 <- colnames(coercedDataWithoutGroup)
+	classVector_S2 <- gsub("^S1.*","0",classVector_S2)
+	classVector_S2 <- gsub("^S2.*","1",classVector_S2)
+	classVector_S2 <- as.numeric(classVector_S2)
+	# ... for S2
+	classVector_S1 <- colnames(coercedDataWithoutGroup)
+	classVector_S1 <- gsub("^S1.*","1",classVector_S1)
+	classVector_S1 <- gsub("^S2.*","0",classVector_S1)
+	classVector_S1 <- as.numeric(classVector_S1) 
 	
-	#Check the class vector to verify we have two subsets.
-	if(length(unique(classVector)) < 2) stop("||FRIENDLY||There is only one subset selected, please select two in order to run the comparative analysis.")
+	#Check the class vectors to verify we have two subsets.
+	if(length(unique(classVector_S1)) < 2) stop("||FRIENDLY||There is only one subset selected, please select two in order to run the comparative analysis.")
+	if(length(unique(classVector_S2)) < 2) stop("||FRIENDLY||There is only one subset selected, please select two in order to run the comparative analysis.")
 	
-	#Generate the t statistic.
-	tTestStatistic <- mt.teststat(coercedDataWithoutGroup, classVector)
+	# Design matrix 
+	design <- cbind(S1=classVector_S1,S2=classVector_S2)
+  
+	##... and contrast matrix
+	contrast.matrix = makeContrasts(S1-S2, levels=design)
 	
-	#Find the raw p-value using the test statistic.
-	rawp0 <- 2 * (1 - pnorm(abs(tTestStatistic)))
+  	print(contrast.matrix)
 	
-	#This is the list of all the procedures we use to generate adjusted p-values.
-	procs <- c("Bonferroni", "Holm", "Hochberg", "SidakSS", "SidakSD", "BH", "BY")
+	# Linear model fitting 
+	print("-lmFit")
+	fit <- lmFit(coercedDataWithoutGroup, design)
+	fit <- contrasts.fit(fit, contrast.matrix)
+	print("-eBayes")
+	fit <- eBayes(fit)
+	print("topTable ...")
 	
-	#Find the adjusted p-values
-	adjustedPValues <- mt.rawp2adjp(rawp0, procs)
+	contr=1
+	top.fit = data.frame(
+	  ID=rownames(fit$coefficients), #Remove Dependence on limma version
+	  logFC=fit$coefficients[,contr],
+	  t=fit$t[,contr],
+	  P.Value=fit$p.value[,contr],
+	  adj.P.val=p.adjust(p=fit$p.value[,contr], method=mhcMethod),
+	  B=fit$lods[,contr]
+	)
 	
-	#Change the list to be in order of the original list.
-	adjustedPValues <- data.frame(round(adjustedPValues$adjp[order(adjustedPValues$index), ],5))
+	top.fit.ranked.decr = top.fit[ order(top.fit$B, decreasing=T), ]
+	rownames(top.fit.ranked.decr) = NULL
 	
-	#Add the GENE_SYMBOL column back to our adjusted p-values matrix.
-	adjustedPValues$GENE_SYMBOL <- geneList
-	adjustedPValues$PROBE.ID <- probeList
+	top.fit.ranked.decr.filt = top.fit.ranked.decr[1:numberOfMarkers,]
+	topgenes = cbind(gene.symbols[top.fit.ranked.decr.filt$ID], top.fit.ranked.decr.filt)
+	colnames(topgenes) = c("GENE_SYMBOL", "PROBE.ID", "logFC", "t", "P.value", "adj.P.val", "B")
+	rownames(topgenes) = NULL
 	
-	#Add the t score to the frame.
-	adjustedPValues$t <- tTestStatistic
+	#End Linear model fitting
 	
-	#Merge the stats into the gene stats frame.
-	geneStatsData <- merge(geneStatsData,adjustedPValues,by=c('GENE_SYMBOL','PROBE.ID'))
-	#---------------------
-	
-	#---------------------
-	#PERMUTATION TESTING
-	print("PERMUTATION TESTING");
-	#Do permutation testing to get p-values, and adjusted values.
-	permTesting <- mt.maxT(coercedDataWithoutGroup, classVector, B = numberOfPermutations)
-	
-	#Reorder the values based on the original index.
-	permTesting <- permTesting[order(permTesting$index),]
-	
-	#Add the gene column back.
-	permTesting$GENE_SYMBOL <- geneList
-	permTesting$PROBE.ID <- probeList
-	
-	#We don't need the index column anymore.
-	permTesting <- subset(permTesting, select = -c(index))
-	
-	#Rename the columns to show they are from the permutation testing.
-	colnames(permTesting) <- c('t.permutation','rawp.permutation','adjp.permutation','GENE_SYMBOL','PROBE.ID')
-	
-	#Merge the stats into the gene stats frame.
-	geneStatsData <- merge(geneStatsData,permTesting,by=c('GENE_SYMBOL','PROBE.ID'))
-	#---------------------
-	
-	#---------------------
-	#RANKING
-	print("RANKING");
-	#Order the data by absolute value of the t statistic.
-	geneStatsData <- geneStatsData[order(abs(geneStatsData$t),decreasing = TRUE), ]	
-	
-	#Only take the top X t-scores, or the whole list if we don't have X items.
-	GENELISTLENGTH <- length(geneStatsData$PROBE.ID)
-	
-	if(GENELISTLENGTH > numberOfMarkers) GENELISTLENGTH <- numberOfMarkers
-	
-	geneStatsData <- geneStatsData[1:GENELISTLENGTH,]
-	
-	#Add a rank column.
-	geneStatsData$RANK <- 1:nrow(geneStatsData)
-	#---------------------	
-	
-	#---------------------
-	#MEAN/SD
-	print("MEAN/SD");
-	
-	#We don't need to rank the MEAN/SD on all the data, just the top X probes. Cut the list based on the probes in the ranked data frame.
-	rankCutmRNAData <- subset(mRNAData, PROBE.ID %in% geneStatsData$PROBE.ID)
-
-	#Get the list of distinct subsets.
-	distinctSubsetNames <- unique(mRNAData$SUBSET)	
-	
-	#Get our S1/S2 data frames.
-	S1Frame <- rankCutmRNAData[which(rankCutmRNAData$SUBSET == distinctSubsetNames[1]),c('GENE_SYMBOL','PROBE.ID','VALUE')]
-	S2Frame <- rankCutmRNAData[which(rankCutmRNAData$SUBSET == distinctSubsetNames[2]),c('GENE_SYMBOL','PROBE.ID','VALUE')]
-	
-	#Calculate Means.
-	S1Mean <- ddply(S1Frame,.(PROBE.ID,GENE_SYMBOL),function(df)mean(df$VALUE))
-	S2Mean <- ddply(S2Frame,.(PROBE.ID,GENE_SYMBOL),function(df)mean(df$VALUE))
-	
-	#Calculate SD.
-	S1SD <- ddply(S1Frame,.(PROBE.ID,GENE_SYMBOL),function(df)sd(df$VALUE))
-	S2SD <- ddply(S2Frame,.(PROBE.ID,GENE_SYMBOL),function(df)sd(df$VALUE))
-	
-	#Add column names for means.
-	colnames(S1Mean) <- c('PROBE.ID','GENE_SYMBOL','S1.Mean')
-	colnames(S2Mean) <- c('PROBE.ID','GENE_SYMBOL','S2.Mean')
-	
-	#Add column names for SD.
-	colnames(S1SD) <- c('PROBE.ID','GENE_SYMBOL','S1.SD')
-	colnames(S2SD) <- c('PROBE.ID','GENE_SYMBOL','S2.SD')
-	
-	#Merge the means back in.
-	geneStatsData <- merge(geneStatsData,S1Mean,by=c('GENE_SYMBOL','PROBE.ID'))
-	geneStatsData <- merge(geneStatsData,S2Mean,by=c('GENE_SYMBOL','PROBE.ID'))
-	
-	#Merge the SD back in.
-	geneStatsData <- merge(geneStatsData,S1SD,by=c('GENE_SYMBOL','PROBE.ID'))
-	geneStatsData <- merge(geneStatsData,S2SD,by=c('GENE_SYMBOL','PROBE.ID'))
-	#---------------------		
-	
-	#---------------------
-	#FOLD CHANGE
-	
-	#The fold change is the S1 Mean divided by the S2 Mean.
-	geneStatsData$FoldChange <- geneStatsData$S1.Mean/geneStatsData$S2.Mean
-	#---------------------	
-	
-	#---------------------
 	#HEATMAP
-
-	#Get a copy of the data.
-	shortGeneStatsData <- geneStatsData
-	
-	#Add a column which tells us if the gene had a positive or negative t-score.
-	shortGeneStatsData$positive <- shortGeneStatsData$t > 0
-	
 	#We need to generate a heatmap with the top 100 markers. First we merge the t-scores back in with the original data.
-	heatmapData <- merge(coercedData,shortGeneStatsData,by=c('GENE_SYMBOL','PROBE.ID'))
+	#heatmapData <- merge(coercedData,shortGeneStatsData,by=c('GENE_SYMBOL','PROBE.ID'))
+	heatmapData <- merge(coercedData,topgenes,by=c('GENE_SYMBOL','PROBE.ID'))
+	
+	#Add a column which tells us if t score is positive
+	heatmapData$positive <- heatmapData$t > 0
 	
 	#We want to show the positive t scores in descending order, then the negative t scores in ascending order.
 	positiveHeatmapData <- heatmapData[which(heatmapData$positive == TRUE),]
@@ -229,30 +171,95 @@ numberOfMarkers = 100
 	#Put all the data together.
 	finalHeatmapData <- rbind(negativeHeatmapData,positiveHeatmapData)
 	
-	#Remove the t score and positive columns.
-	finalHeatmapData$GENE_SYMBOL <- paste(finalHeatmapData$GENE_SYMBOL, finalHeatmapData$PROBE.ID, sep='/')
-	finalHeatmapData <- subset(finalHeatmapData, select = -c(PROBE.ID,t,positive,S1.Mean,S2.Mean,S1.SD,S2.SD,FoldChange,RANK,rawp,Bonferroni,Holm,Hochberg,SidakSS,SidakSD,BH,BY,t.permutation,rawp.permutation,adjp.permutation))
+	#In case there is no GENE_SYMBOL annotation existing for given probe
+	if(length(which(finalHeatmapData$GENE_SYMBOL==""))>0)
+	  finalHeatmapData$GENE_SYMBOL[which(finalHeatmapData$GENE_SYMBOL=="")]="/"
+  
+	finalHeatmapData$GENE_SYMBOL <- paste(finalHeatmapData$PROBE.ID, finalHeatmapData$GENE_SYMBOL, sep='_')
+	#finalHeatmapData$GENE_SYMBOL <- paste(finalHeatmapData$GENE_SYMBOL, " (" , finalHeatmapData$PROBE.ID, ")",sep='')
+	finalHeatmapData$GENE_SYMBOL<-gsub("_\\s+$","",finalHeatmapData$GENE_SYMBOL, ignore.case = FALSE, perl = T)
+	# end
+	#finalHeatmapData <- subset(finalHeatmapData, select = -c(PROBE.ID,t,positive,S1.Mean,S2.Mean,S1.SD,S2.SD,FoldChange,RANK,rawp,BH,BY))
+	finalHeatmapData <- subset(finalHeatmapData, select = -c(PROBE.ID,t,positive,logFC,P.value,adj.P.val,B))
 	
-	#Rename the first column to be "GROUP".
-	colnames(finalHeatmapData)[1] <- 'GROUP'
-	#---------------------
 	
-	#---------------------
-	#WRITE TO FILE
+	#Rename the first column to be "PROBE.ID".
+	colnames(finalHeatmapData)[1] <- 'PROBE.ID'
 	
-	#We need MASS to dump the matrix to a file.
-	require(MASS)
-
-	#Before we write the CMS file we need to replace any empty genes with NA.
-	geneStatsData$GENE_SYMBOL[which(geneStatsData$GENE_SYMBOL=="")] <- NA
-	
-	#Write the file with the stats by gene. This will get read into the UI.
-	write.matrix(geneStatsData,output.file,sep = "\t")
-	
-	#Write the data file we will use for the heatmap.
-	write.matrix(finalHeatmapData,'heatmapdata',sep = "\t")
+# 	#---------------------
+ 	#WRITE TO FILE
+  #Before we write the CMS file we need to replace any empty genes with NA.
+  topgenes$GENE_SYMBOL[which(topgenes$GENE_SYMBOL=="")] <- NA
+  #Write the file with the stats by gene. This will get read into the UI.
+  write.table(topgenes,output.file,sep = "\t", , quote=F, row.names=F)
+  #Write the data file we will use for the heatmap.
+  write.table(finalHeatmapData,'heatmapdata',sep = "\t", quote=F, row.names=F)
 	#---------------------
 	
 	print("-------------------")
 	##########################################
+}
+MS.probe.aggregation <- function(mRNAData, collapseRow.method,
+                                 collapseRow.selectFewestMissing, 
+                                 output.file = "aggregated_data.txt") {
+    library(WGCNA)
+    
+    #remove SUBSET column
+    mRNAData <- subset(mRNAData, select = -c(SUBSET))
+    
+    meltedData <- melt(mRNAData, id=c("PROBE.ID","GENE_SYMBOL","PATIENT.ID"))
+    #Cast the data into a format that puts the PATIENT.ID in a column.
+    castedData <- data.frame(dcast(meltedData, PROBE.ID + GENE_SYMBOL ~ PATIENT.ID))
+    #Create a unique identifier column.
+    castedData$UNIQUE_ID <- paste(castedData$PROBE.ID, castedData$GENE_SYMBOL,sep="___")
+    #Set the name of the rows to be the unique ID.
+    rownames(castedData) = castedData$UNIQUE_ID
+    if (nrow(castedData) <= 1) {
+        warning("Only one probe.id present in the data. Probe aggregation can not be performed.")
+        return (mRNAData)
+    }
+    
+    #Input expression matrix for collapseRows function
+    datET = subset(castedData, select = -c(GENE_SYMBOL,PROBE.ID,UNIQUE_ID))
+    GENE_SYMBOL = as.vector(castedData$GENE_SYMBOL)
+    UNIQUE_ID = as.vector(castedData$UNIQUE_ID)
+    rownames(datET) = UNIQUE_ID
+     #Run the collapsing on a subset of the data by removing some columns.
+     finalData <- collapseRows( datET = datET,
+                                rowGroup = GENE_SYMBOL,
+                                rowID = UNIQUE_ID,
+                                method = collapseRow.method,
+                                connectivityBasedCollapsing = TRUE,
+                                methodFunction = NULL,
+                                connectivityPower = 1,
+                                selectFewestMissing = collapseRow.selectFewestMissing,
+                                thresholdCombine = NA
+                                )
+      #Coerce the data into a data frame.
+      finalData=data.frame(finalData$group2row, finalData$datETcollapsed)
+      #Rename the columns, the selected row_id is the unique_id.
+      colnames(finalData)[2] <- 'UNIQUE_ID'
+ 
+      #Merge the probe.id and gene symbol back in and remove the group and unique_id columns.
+      matrix_annot = matrix(unlist(strsplit(as.vector(finalData$UNIQUE_ID), split="___")), ncol=2, byrow=T)
+      colnames(matrix_annot) = c("PROBE.ID", "GENE_SYMBOL")
+      finalData = cbind(matrix_annot, finalData)
+      finalData = subset(finalData, select=-c(group, UNIQUE_ID))
+      #Melt the data back into the initial format.
+      finalData <- melt(finalData)
+  
+      #Set the column names again.
+      colnames(finalData) <- c("PROBE.ID","GENE_SYMBOL","PATIENT.ID","VALUE")
+      #When we convert to a data frame the numeric columns get an x in front of them. Remove them here.
+      finalData$PATIENT.ID <- sub("^X","",finalData$PATIENT.ID)
+ 
+      #Return relevant columns
+      finalData <- finalData[,c("PATIENT.ID","VALUE","PROBE.ID","GENE_SYMBOL")]
+     
+      finalData$SUBSET<-finalData$PATIENT.ID
+      finalData$SUBSET[grep("^S1_|_S1_|_S1$",finalData$SUBSET)]<-"S1"
+      finalData$SUBSET[grep("^S2_|_S2_|_S2$",finalData$SUBSET)]<-"S2"
+ 
+      write.table(finalData, file = output.file, sep = "\t", row.names = FALSE)
+      return(finalData)
 }

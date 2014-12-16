@@ -97,13 +97,13 @@ SurvivalCurve.loader.individual <- function(dataChunk,output.name,time.field,cen
 		time <- as.numeric(time)
 	}
 	
-	status <- currentDataSubset[[censor.field]]
+	status <- !currentDataSubset[[censor.field]]
 	
 	#This is the current group we are generating the statistics for.
 	if("GROUP" %in% colnames(currentDataSubset)) 
 	{
 		currentGroup <- unique(currentDataSubset$GROUP)
-		currentGroup <- gsub("^\\s+|\\s+$", "",currentGroup)
+		currentGroup <- gsub("^\\s+|\\s+$| \\(.*\\)$", "",currentGroup)
 		
 		#Change the output file name to have the group in it.
 		output.name <- paste(output.name,'_',currentGroup,sep='')

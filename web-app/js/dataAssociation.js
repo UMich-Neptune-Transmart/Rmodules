@@ -65,6 +65,7 @@ function createAdvancedWorkflowMenu(result) {
                 disabled : false,
                 menu : advMenu
                     }
+<<<<<<< HEAD
                 ,'->',
                     {
                         text : 'Save to PDF',
@@ -75,6 +76,18 @@ function createAdvancedWorkflowMenu(result) {
                     generatePdfFromHTML('dataAssociationContent', 'DataAssociation.pdf');
                 }
                     }
+=======
+//                ,'->',
+//                    {
+//                        text : 'Save to PDF',
+//                iconCls : 'savepdfbutton',
+//                hidden : false,
+//                id : 'savetopdfbtn',
+//                handler: function(){
+//                    generatePdfFromHTML('dataAssociationBody', 'DataAssociation.pdf');
+//                }
+//                    }
+>>>>>>> 0a6c5bd5bcddfc61051af5d0b9156efdb53d7c4b
                 );
     }
 }

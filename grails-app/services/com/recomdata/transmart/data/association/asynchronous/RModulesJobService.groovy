@@ -17,38 +17,33 @@
 package com.recomdata.transmart.data.association.asynchronous
 
 import com.recomdata.transmart.util.RUtil
-import groovy.util.ConfigObject;
+import grails.util.Holders
+import org.apache.commons.lang.StringUtils
+import org.quartz.Job
+import org.quartz.JobExecutionContext
+import org.quartz.JobExecutionException
+import org.rosuda.REngine.REXP
+import org.rosuda.REngine.Rserve.RConnection
+import org.rosuda.REngine.Rserve.RserveException
 
-import java.io.File;
-import java.lang.reflect.UndeclaredThrowableException;
-
-import org.apache.commons.lang.StringUtils;
-import org.quartz.Job;
-import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
-import org.rosuda.REngine.REXP;
-import org.rosuda.REngine.Rserve.*;
-import org.codehaus.groovy.grails.commons.ApplicationHolder as AH
-import org.codehaus.groovy.grails.commons.ConfigurationHolder;
+import java.lang.reflect.UndeclaredThrowableException
 
 class RModulesJobService implements Job {
 
     static transactional = true
 	static scope = 'request'
 
-	def ctx = AH.application.mainContext
+    def grailsApplication = Holders.grailsApplication
+	def ctx = grailsApplication.mainContext
 	def springSecurityService = ctx.springSecurityService
 	def jobResultsService = ctx.jobResultsService
+	def asyncJobService = ctx.asyncJobService
 	def i2b2HelperService = ctx.i2b2HelperService
 	def i2b2ExportHelperService = ctx.i2b2ExportHelperService
 	def snpDataService = ctx.snpDataService
 	def dataExportService = ctx.dataExportService
 	def zipService = ctx.zipService
 
-	def config = ConfigurationHolder.config
-	def String tempFolderDirectory = config.RModules.tempFolderDirectory
-
-	def jobTmpParentDir
 	def jobTmpDirectory
 	//This is where all the R scripts get run, intermediate files are created, images are initially saved, etc.
 	def jobTmpWorkingDirectory
@@ -85,7 +80,7 @@ class RModulesJobService implements Job {
 	def private setupTempDirsAndJobFile() throws Exception {
 		try {
 			//Initialize the jobTmpDirectory which will be used during bundling in ZipUtil
-			jobTmpDirectory = tempFolderDirectory + File.separator + "${jobDataMap.jobName}" + File.separator
+			jobTmpDirectory = grailsApplication.config.RModules.tempFolderDirectory + File.separator + "${jobDataMap.jobName}" + File.separator
 			jobTmpDirectory = jobTmpDirectory.replace("\\","\\\\")
 			jobTmpWorkingDirectory = jobTmpDirectory + "workingDirectory"
 
@@ -101,6 +96,7 @@ class RModulesJobService implements Job {
 			jobDataMap.getKeys().each {_key ->
 				jobInfoFile.append("\t${_key} -> ${jobDataMap[_key]}" + System.getProperty("line.separator"))
 			}
+
 		} catch (Exception e) {
 			throw new Exception('Failed to create Temporary Directories and Job Info File, maybe there is not enough space on disk. Please contact an administrator.', e);
 		}
@@ -137,6 +133,7 @@ class RModulesJobService implements Job {
 				errorMsg = "There was an error running your job \'${jobName}\'. Please contact an administrator."
 			}
 			jobResultsService[jobName]["Exception"] = errorMsg
+            updateStatusAndCheckIfJobCancelled(jobName, "Error")
 			return
 		}
 
@@ -221,7 +218,7 @@ class RModulesJobService implements Job {
 							}
 						}
 					} catch (Exception e) {
-						println("Failed to FTP PUT the ZIP file");
+						log.error("Failed to FTP PUT the ZIP file", e);
 					}
 					break
 				case "R":
@@ -286,7 +283,7 @@ class RModulesJobService implements Job {
 		new File(rOutputDirectory).mkdir()
 
 		//Establish a connection to R Server.
-		RConnection c = new RConnection();
+		RConnection c = new RConnection(Holders.config.RModules.host, Holders.config.RModules.port);
         c.setStringEncoding("utf8")
 
         //Set the working directory to be our temporary location.
@@ -306,7 +303,7 @@ class RModulesJobService implements Job {
 
             //Replace the working directory flag if it exists in the string.
 			reformattedCommand = currentCommand.replace("||PLUGINSCRIPTDIRECTORY||",
-                    RUtil.escapeRStringContent(config.RModules.pluginScriptDirectory))
+                    RUtil.escapeRStringContent(grailsApplication.config.RModules.pluginScriptDirectory))
 			reformattedCommand = reformattedCommand.replace("||TEMPFOLDERDIRECTORY||",
                     RUtil.escapeRStringContent(jobTmpDirectory + "subset1_" + studies[0] + File.separator))
 			reformattedCommand = reformattedCommand.replace("||TOPLEVELDIRECTORY||",
@@ -355,6 +352,8 @@ class RModulesJobService implements Job {
 			}
 		}
 
+        // We close the connection to the R Server
+        c.close();
 	}
 
 	/**
@@ -370,13 +369,16 @@ class RModulesJobService implements Job {
 		   log.debug(status)
 	   }
 
-	   boolean jobCancelled = false
-	   //log.debug("Checking to see if the user cancelled the job")
-	   if (jobResultsService[jobName]["Status"] == "Cancelled")	{
+       def viewerURL = jobResultsService[jobName]["ViewerURL"]
+       def altViewerURL = jobResultsService[jobName]["AltViewerURL"]
+       def jobResults = jobResultsService[jobName]["Results"]
+       asyncJobService.updateStatus(jobName, status, viewerURL, altViewerURL, jobResults)
+
+	   boolean jobCancelled = jobResultsService[jobName]["Status"] == "Cancelled"
+	   if (jobCancelled)	{
 		   log.warn("${jobName} has been cancelled")
-		   return jobCancelled
 	   }
 
-	   return jobCancelled
+	   jobCancelled
    }
 }
