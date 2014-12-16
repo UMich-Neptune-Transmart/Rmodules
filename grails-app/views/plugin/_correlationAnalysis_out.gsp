@@ -8,6 +8,6 @@
     </g:each>
 
     <div>
-        <a href="${resource(file: zipLink)}" class="downloadLink">Download raw R data</a>
+        <!-- <a href="${resource(file: zipLink)}" class="downloadLink">Download raw R data</a> -->
     </div>
 </p>

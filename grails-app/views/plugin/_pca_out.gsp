@@ -16,5 +16,5 @@ ${geneListTable}
 
 <br />
 <div>
-    <a href="${resource(file: zipLink)}" class="downloadLink">Download raw R data</a>
+    <!-- <a href="${resource(file: zipLink)}" class="downloadLink">Download raw R data</a> -->
 </div>

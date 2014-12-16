@@ -60,7 +60,7 @@
 			<tr>
 				<td>
 					%{--<a class='AnalysisLink' href="${zipLocation}">Download raw R data</a>--}%
-                    <a class='AnalysisLink' href="${resource(file: zipLocation)}">Download raw R data</a>
+                    <!-- <a class='AnalysisLink' href="${resource(file: zipLocation)}">Download raw R data</a> -->
 				</td>
 			</tr>		
 			<tr>

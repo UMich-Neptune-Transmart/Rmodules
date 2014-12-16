@@ -48,7 +48,7 @@
 		
 		<br />
 		
-		<a class='AnalysisLink' href="${resource(file: zipLink)}">Download raw R data</a>
+		<!-- <a class='AnalysisLink' href="${resource(file: zipLink)}">Download raw R data</a> -->
 		
 	</form>
 </body>

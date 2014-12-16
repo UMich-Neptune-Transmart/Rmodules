@@ -65,16 +65,16 @@ function createAdvancedWorkflowMenu(result) {
                 disabled : false,
                 menu : advMenu
                     }
-//                ,'->',
-//                    {
-//                        text : 'Save to PDF',
-//                iconCls : 'savepdfbutton',
-//                hidden : false,
-//                id : 'savetopdfbtn',
-//                handler: function(){
-//                    generatePdfFromHTML('dataAssociationBody', 'DataAssociation.pdf');
-//                }
-//                    }
+                ,'->',
+                    {
+                        text : 'Save to PDF',
+                iconCls : 'savepdfbutton',
+                hidden : false,
+                id : 'savetopdfbtn',
+                handler: function(){
+                    generatePdfFromHTML('dataAssociationContent', 'DataAssociation.pdf');
+                }
+                    }
                 );
     }
 }
