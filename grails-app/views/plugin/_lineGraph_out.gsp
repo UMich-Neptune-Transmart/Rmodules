@@ -6,6 +6,6 @@
     </g:each>
 
     <div>
-        <!-- <a class='AnalysisLink' href="${resource(file: zipLink)}">Download raw R data</a> -->
+        <g:if test="${grailsApplication.config.com.recomdata.datasetExplorer.dataExportEnabled}"> <a href="${resource(file: zipLink)}">Download raw R data</a></g:if>
     </div>
 </p>
