@@ -91,7 +91,7 @@
 			</tr>			
 			<tr>
 				<td>
-					<a class='AnalysisLink' href="${zipLink}">Download raw R data</a>
+<g:if test="${grailsApplication.config.com.recomdata.datasetExplorer.dataExportEnabled}"> <a class='AnalysisLink' href="${zipLink}">Download raw R data</a> </g:if>
 				</td>
 			</tr>	
 			<tr>
