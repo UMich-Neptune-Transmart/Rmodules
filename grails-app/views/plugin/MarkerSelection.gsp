@@ -16,7 +16,9 @@
 
             %{--High dimensional input--}%
             <div class="highDimContainer">
-                <span>Select a High Dimensional Data node from the Data Set Explorer Tree and drag it into the box.</span>
+                <span>Select a High Dimensional Data node from the Data Set Explorer Tree and drag it into the box.<br />
+                Note: There must be two subsets in the Comparison panel. Normally, S1 would be considered
+                the reference group (for example, a control group), and S2, the comparison group (experimental group).</span>
                 <div id='divIndependentVariable' class="queryGroupIncludeSmall highDimBox"></div>
                 <div class="highDimBtns">
                     <button type="button" onclick="highDimensionalData.gather_high_dimensional_data('divIndependentVariable')">High Dimensional Data</button>
@@ -37,6 +39,10 @@
             <div>
                 <input type="checkbox" id="chkGroupBySubject" name="doGroupBySubject">
                 <span>Group by subject (instead of node) for multiple nodes</span>
+            </div>
+            <div>
+                <input type="checkbox" id="chkCalculateZscore" name="calculateZscore">
+                <span>Calculate z-score on the fly</span>
             </div>
             <input type="button" value="Run" onClick="markerSelectionView.submit_job(this.form);" class="runAnalysisBtn">
         </fieldset>

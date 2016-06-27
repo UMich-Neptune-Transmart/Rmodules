@@ -173,7 +173,7 @@ LineGraphView.prototype.update_manual_binning = function () {
         } else {
             divContinuous.hide();
             divCategorical.show();
-            setupCategoricalItemsList("divCategoryVariable","divCategoricalItems");
+            setupCategoricalItemsList("divGroupByVariable","divCategoricalItems");
         }
     }
 }

@@ -38,18 +38,6 @@ var _inputpanel_items = ['->', // '->' making it right aligned
  * @private
  */
 var _resultgrid_items = [
-    '-',
-    {
-        xtype: 'button',
-        text: 'Download Result',
-        scale: 'medium',
-        iconCls: 'downloadbutton',
-        handler: function (b, e) {
-            // get job name
-            var jobName = survivalAnalysisACGHView.intermediateResultGrid.jobName;
-            return survivalAnalysisACGHView.intermediateResultGrid.downloadIntermediateResult(jobName);
-        }
-    },
     {
         xtype: 'button',
         text: 'Show Survival Plot',
@@ -400,61 +388,65 @@ var SurvivalAnalysisACGHView = Ext.extend(GenericAnalysisView, {
         }
 
         if (this.validateInputs()) {
-            console.log('LOG: submit survival analysis acgh job');
+            var regionEl =  this.inputBar.regionPanel.getInputEl();
+            var errorMessage = "One or more of the high dimensional data nodes are not acgh data; select a copy number regions file for this analysis";
+            this.validateDataTypes(regionEl, ["acgh"], errorMessage, function() {
+                console.log('LOG: submit survival analysis acgh job');
 
-            // get concept codes
-            var variablesConceptCode = '';
-            var regionVarConceptCode = this.inputBar.regionPanel.getConceptCode();
-            var survivalVarConceptCode = this.inputBar.survivalPanel.getConceptCode();
-            var censoringVarConceptCode = this.inputBar.censoringPanel.getConceptCodes();
-            var permutationComponent = Ext.get('permutation');
-            var permutation = permutationComponent.getValue();
+                // get concept codes
+                var variablesConceptCode = '';
+                var regionVarConceptCode = _this.inputBar.regionPanel.getConceptCode();
+                var survivalVarConceptCode = _this.inputBar.survivalPanel.getConceptCode();
+                var censoringVarConceptCode = _this.inputBar.censoringPanel.getConceptCodes();
+                var permutationComponent = Ext.get('permutation');
+                var permutation = permutationComponent.getValue();
 
-            // get alteration value
-            var alterationBtnGroup = this.inputBar.alterationPanel.getComponent('alteration-types-chk-group');
-            var alterationVal =  alterationBtnGroup.getSelectedValue();
+                // get alteration value
+                var alterationBtnGroup = _this.inputBar.alterationPanel.getComponent('alteration-types-chk-group');
+                var alterationVal = alterationBtnGroup.getSelectedValue();
 
-            // create a string of all the concepts we need for the i2b2 data.
-            variablesConceptCode = regionVarConceptCode;
-            variablesConceptCode += survivalVarConceptCode != '' ? "|" + survivalVarConceptCode : "";
-            variablesConceptCode += censoringVarConceptCode != '' ? "|" + censoringVarConceptCode : "";
+                // create a string of all the concepts we need for the i2b2 data.
+                variablesConceptCode = regionVarConceptCode;
+                variablesConceptCode += survivalVarConceptCode != '' ? "|" + survivalVarConceptCode : "";
+                variablesConceptCode += censoringVarConceptCode != '' ? "|" + censoringVarConceptCode : "";
 
-            // compose params
-            var formParams = {
-                regionVariable : regionVarConceptCode,
-                timeVariable : survivalVarConceptCode,
-                censoringVariable : censoringVarConceptCode,
-                variablesConceptPaths: variablesConceptCode,
-                aberrationType:alterationVal,
-                numberOfPermutations: permutation,
-                confidenceIntervals:'',
-                jobType: SA_JOB_TYPE,
-                analysisConstraints: JSON.stringify({
-                    "job_type": SA_JOB_TYPE,
-                    "data_type": "acgh",
-                    "assayConstraints": {
-                        "patient_set": [GLOBAL.CurrentSubsetIDs[1], GLOBAL.CurrentSubsetIDs[2]],
-                        "assay_id_list": null,
-                        "ontology_term": [
-                            {
-                                'term': regionVarConceptCode,
-                                'options': {'type': "default"}
-                            }
-                        ],
-                        "trial_name": null
-                    },
-                    "dataConstraints": {
-                        "disjunction": null
-                    },
-                    "projections": ["acgh_values"]
-                })
-            };
+                // compose params
+                var formParams = {
+                    regionVariable: regionVarConceptCode,
+                    timeVariable: survivalVarConceptCode,
+                    censoringVariable: censoringVarConceptCode,
+                    variablesConceptPaths: variablesConceptCode,
+                    aberrationType: alterationVal,
+                    numberOfPermutations: permutation,
+                    confidenceIntervals: '',
+                    jobType: SA_JOB_TYPE,
+                    analysisConstraints: JSON.stringify({
+                        "job_type": SA_JOB_TYPE,
+                        "data_type": "acgh",
+                        "assayConstraints": {
+                            "patient_set": [GLOBAL.CurrentSubsetIDs[1], GLOBAL.CurrentSubsetIDs[2]],
+                            "assay_id_list": null,
+                            "ontology_term": [
+                                {
+                                    'term': regionVarConceptCode,
+                                    'options': {'type': "default"}
+                                }
+                            ],
+                            "trial_name": null
+                        },
+                        "dataConstraints": {
+                            "disjunction": null
+                        },
+                        "projections": ["acgh_values"]
+                    })
+                };
 
-            // reset previous analysis result
-            this.resetResult();
+                // reset previous analysis result
+                _this.resetResult();
 
-            // submit job
-            var job = this.submitJob(formParams, this.renderResults, this);
+                // submit job
+                var job = _this.submitJob(formParams, _this.renderResults, _this);
+            });
 
         }
     },
@@ -565,43 +557,74 @@ var SurvivalAnalysisACGHView = Ext.extend(GenericAnalysisView, {
                     // load using script tags for cross domain, if the data in on the same domain as
                     // this page, an HttpProxy would be better
                     proxy: new Ext.data.HttpProxy({
-                        url: "../SurvivalAnalysisResult/list"
+                        url: pageInfo.basePath + "/SurvivalAnalysisResult/list"
                     })
 
                 });
                 store.setDefaultSort('chromosome', 'asc');
 
+                var finishRendering = function(menuButtons) {
+                    // create paging bar with related store
+                    var pagingbar = new Ext.PagingToolbar({
+                        pageSize: GEN_RESULT_GRID_LIMIT,
+                        store: store,
+                        displayInfo: true,
+                        displayMsg: 'Displaying topics {0} - {1} of {2}',
+                        emptyMsg: "No topics to display",
+                        items: menuButtons
+                    });
 
-                // create paging bar with related store
-                var pagingbar = new Ext.PagingToolbar({
-                    pageSize: GEN_RESULT_GRID_LIMIT,
-                    store: store,
-                    displayInfo: true,
-                    displayMsg: 'Displaying topics {0} - {1} of {2}',
-                    emptyMsg: "No topics to display",
-                    items: _resultgrid_items
+                    // make sure no instance from previous job
+                    Ext.destroy(Ext.get('intermediateGridPanel'));
+
+                    // create new grid and render it
+                    view.intermediateResultGrid  = new IntermediateResultGrid({
+                        id: 'intermediateGridPanel',
+                        title: 'Intermediate Result - Job Name: ' + jobName ,
+                        renderTo: 'intermediateResultWrapper',
+                        trackMouseOver:false,
+                        loadMask: true,
+                        columns: _resultgrid_columns,
+                        store: store,
+                        bbar: pagingbar,
+                        jobName: jobName
+                    });
+
+                    view.intermediateResultGrid.render();
+
+                    // finally load the data
+                    store.load({params:{start:0, limit:GEN_RESULT_GRID_LIMIT}});
+                }
+
+                jQuery.ajax({
+                        url: pageInfo.basePath + '/dataExport/isCurrentUserAllowedToExport',
+                        type: 'GET',
+                        data: {
+                            result_instance_id1: survivalAnalysisACGHView.jobInfo.jobInputsJson.result_instance_id1,
+                            result_instance_id2: survivalAnalysisACGHView.jobInfo.jobInputsJson.result_instance_id2
+                        },
+                        success: function(data) {
+                            var menuButtons = _resultgrid_items
+                            if (data.result) {
+                                menuButtons = menuButtons.concat({
+                                    xtype: 'button',
+                                    text: 'Download Result',
+                                    scale: 'medium',
+                                    iconCls: 'downloadbutton',
+                                    handler: function (b, e) {
+                                        // get job name
+                                        var jobName = survivalAnalysisACGHView.intermediateResultGrid.jobName;
+                                        return survivalAnalysisACGHView.intermediateResultGrid.downloadIntermediateResult(jobName);
+                                    }
+                                });
+                            }
+
+                            finishRendering(menuButtons);
+                        },
+                        fail: function(data) {
+                            finishRendering(_resultgrid_items);
+                        }
                 });
-
-                // make sure no instance from previous job
-                Ext.destroy(Ext.get('intermediateGridPanel'));
-
-                // create new grid and render it
-                view.intermediateResultGrid  = new IntermediateResultGrid({
-                    id: 'intermediateGridPanel',
-                    title: 'Intermediate Result - Job Name: ' + jobName ,
-                    renderTo: 'intermediateResultWrapper',
-                    trackMouseOver:false,
-                    loadMask: true,
-                    columns: _resultgrid_columns,
-                    store: store,
-                    bbar: pagingbar,
-                    jobName: jobName
-                });
-
-                view.intermediateResultGrid.render();
-
-                // finally load the data
-                store.load({params:{start:0, limit:GEN_RESULT_GRID_LIMIT}});
             },
             failure: function (result, request) {
                 console.log('failure ....')

@@ -91,7 +91,9 @@
 			</tr>			
 			<tr>
 				<td>
-<g:if test="${grailsApplication.config.com.recomdata.datasetExplorer.dataExportEnabled}"> <a class='AnalysisLink' href="${zipLink}">Download raw R data</a> </g:if>
+					<g:if test="${grailsApplication.config.com.recomdata.datasetExplorer.dataExportEnabled && zipLink}">
+						<a class='AnalysisLink' class='downloadLink' href="${resource(file: zipLink)}">Download raw R data</a>
+					</g:if>
 				</td>
 			</tr>	
 			<tr>

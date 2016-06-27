@@ -59,8 +59,9 @@
 			</tr>				
 			<tr>
 				<td>
-					%{--<a class='AnalysisLink' href="${zipLocation}">Download raw R data</a>--}%
-					<g:if test="${grailsApplication.config.com.recomdata.datasetExplorer.dataExportEnabled}"> <a class='AnalysisLink' href="${resource(file: zipLocation)}">Download raw R data</a></g:if>
+					<g:if test="${grailsApplication.config.com.recomdata.datasetExplorer.dataExportEnabled && zipLocation}">
+						<a class='AnalysisLink' class='downloadLink' href="${resource(file: zipLocation)}">Download raw R data</a>
+					</g:if>
 				</td>
 			</tr>		
 			<tr>

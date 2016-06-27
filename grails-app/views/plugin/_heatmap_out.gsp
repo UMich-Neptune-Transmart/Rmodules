@@ -12,8 +12,8 @@
         </a>
     </g:each>
 
-    <div>
-        <g:if test="${grailsApplication.config.com.recomdata.datasetExplorer.dataExportEnabled}"> <a href="${resource(file: zipLink)}">Download raw R data</a></g:if>
-    </div>
+    <g:if test="${grailsApplication.config.com.recomdata.datasetExplorer.dataExportEnabled && zipLink}">
+        <a class='AnalysisLink' class='downloadLink' href="${resource(file: zipLink)}">Download raw R data</a>
+    </g:if>
 </p>
 

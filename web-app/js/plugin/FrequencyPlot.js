@@ -169,15 +169,23 @@ var FrequencyPlotView = Ext.extend(GenericAnalysisView, {
                 // generate template
                 frequencyPlotTpl.overwrite(Ext.get('freq_plot_wrapper'), region);
 
-                // generate download button
-                var exportBtn = new Ext.Button({
-                    text: 'Download Result',
-                    iconCls: 'downloadbutton',
-                    renderTo: 'downloadBtn',
-                    handler: function () {
-                        _this.downloadFrequencyPlotResult(jobName);
-                    }
-                });
+                jQuery.get(pageInfo.basePath + '/dataExport/isCurrentUserAllowedToExport',
+                    {
+                        result_instance_id1: frequencyPlotView.jobInfo.jobInputsJson.result_instance_id1,
+                        result_instance_id2: frequencyPlotView.jobInfo.jobInputsJson.result_instance_id2
+                    },
+                    function(data) {
+                        if (data.result) {
+                            new Ext.Button({
+                                text: 'Download Result',
+                                iconCls: 'downloadbutton',
+                                renderTo: 'downloadBtn',
+                                handler: function () {
+                                    _this.downloadFrequencyPlotResult(jobName);
+                                }
+                            });
+                        }
+                    });
             },
             params: {
                 jobName: jobName
@@ -251,42 +259,46 @@ var FrequencyPlotView = Ext.extend(GenericAnalysisView, {
         var formValidator = new FormValidator(inputArray);
 
         if (formValidator.validateInputForm()) {
+            var regionEl =  this.inputBar.acghPanel.getInputEl();
+            var errorMessage = "One or more of the high dimensional data nodes are not acgh data; select a copy number regions file for this analysis";
+            this.validateDataTypes(regionEl, ["acgh"], errorMessage, function() {
 
-            var acghVal = this.inputBar.acghPanel.getConceptCode();
-            var groupVals = this.inputBar.groupPanel.getConceptCodes();
+                var acghVal = _this.inputBar.acghPanel.getConceptCode();
+                var groupVals = _this.inputBar.groupPanel.getConceptCodes();
 
-            // create a string of all the concepts we need for the i2b2 data.
-            var variablesConceptCode = acghVal;
-            variablesConceptCode += groupVals != '' ? "|" + groupVals : "";
+                // create a string of all the concepts we need for the i2b2 data.
+                var variablesConceptCode = acghVal;
+                variablesConceptCode += groupVals != '' ? "|" + groupVals : "";
 
-            // compose params
-            var formParams = {
-                regionVariable: acghVal,
-                groupVariable: groupVals,
-                variablesConceptPaths: variablesConceptCode,
-                analysisConstraints: JSON.stringify({
-                    "job_type": _this.jobType,
-                    "data_type": "acgh",
-                    "assayConstraints": {
-                        "patient_set": [GLOBAL.CurrentSubsetIDs[1], GLOBAL.CurrentSubsetIDs[2]],
-                        "assay_id_list": null,
-                        "ontology_term": [
-                            {
-                                'term': acghVal,
-                                'options': {'type': "default"}
-                            }
-                        ],
-                        "trial_name": null
-                    },
-                    "dataConstraints": {
-                        "disjunction": null
-                    },
-                    "projections": ["acgh_values"]
-                }),
-                jobType: _this.jobType
-            };
+                // compose params
+                var formParams = {
+                    regionVariable: acghVal,
+                    groupVariable: groupVals,
+                    variablesConceptPaths: variablesConceptCode,
+                    analysisConstraints: JSON.stringify({
+                        "job_type": _this.jobType,
+                        "data_type": "acgh",
+                        "assayConstraints": {
+                            "patient_set": [GLOBAL.CurrentSubsetIDs[1], GLOBAL.CurrentSubsetIDs[2]],
+                            "assay_id_list": null,
+                            "ontology_term": [
+                                {
+                                    'term': acghVal,
+                                    'options': {'type': "default"}
+                                }
+                            ],
+                            "trial_name": null
+                        },
+                        "dataConstraints": {
+                            "disjunction": null
+                        },
+                        "projections": ["acgh_values"]
+                    }),
+                    jobType: _this.jobType
+                };
 
-            var job = this.submitJob(formParams, this.onJobFinish, this);
+                var job = _this.submitJob(formParams, _this.onJobFinish, _this);
+            });
 
         } else { // something is not correct in the validation
             // empty form parameters

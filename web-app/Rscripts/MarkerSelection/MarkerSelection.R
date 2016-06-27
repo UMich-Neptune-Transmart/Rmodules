@@ -23,7 +23,9 @@ input.filename,
 output.file ="CMS.TXT",
 numberOfPermutations = 5000,
 numberOfMarkers = 100,
-aggregate.probes = FALSE
+aggregate.probes = FALSE,
+calculateZscore = FALSE,
+zscore.file = "zscores.txt"
 )
 {
 	##########################################
@@ -46,11 +48,34 @@ aggregate.probes = FALSE
 	#Pull the GEX data from the file.
 	mRNAData <- data.frame(read.delim(input.filename))
 
+	# Check for a single probe
+	if(length(unique(mRNAData$PROBE.ID)) == 1) {
+	  stop("Marker selection is not available for a single probe. If you would like to see the heatmap, please use the Heatmap tool instead.")
+	}
+
+	# Check for a single gene and probe aggregation
+	if(length(unique(mRNAData$GENE_SYMBOL)) == 1 && aggregate.probes) {
+	  stop("You selected probe aggregation on a single gene. Marker Selection is not available for a single probe. If you would like to see the heatmap, please use the Heatmap tool instead.")
+	}
+
 	#Trim the probe.id field.
 	mRNAData$PROBE.ID 		<- gsub("^\\s+|\\s+$", "",mRNAData$PROBE.ID)
 	mRNAData$GENE_SYMBOL 	<- gsub("^\\s+|\\s+$", "",mRNAData$GENE_SYMBOL)
 	mRNAData$PATIENT.ID   	<- gsub("^\\s+|\\s+$", "",mRNAData$PATIENT.ID)
 	
+	if(calculateZscore){
+	  mRNAData = ddply(mRNAData, "PROBE.ID", transform, probe.md = median(VALUE, na.rm = TRUE))
+	  mRNAData = ddply(mRNAData, "PROBE.ID", transform, probe.sd = sd(VALUE, na.rm = TRUE))        
+	  mRNAData$VALUE = with(mRNAData, ifelse(probe.sd == 0, 0,
+	                                         (mRNAData$VALUE - mRNAData$probe.md) / mRNAData$probe.sd))
+	  mRNAData$VALUE = with(mRNAData, ifelse(VALUE > 2.5, 2.5,
+	                                         ifelse(VALUE < -2.5, -2.5, VALUE)))
+	  mRNAData$VALUE = round(mRNAData$VALUE, 9)
+	  mRNAData$probe.md = NULL
+	  mRNAData$probe.sd = NULL
+	  write.table(mRNAData,zscore.file,quote=F,sep="\t",row.names=F,col.names=T)
+	}
+  
     if (aggregate.probes) {
         # probe aggregation function adapted from dataBuilder.R to heatmap's specific data-formats
         mRNAData <- MS.probe.aggregation(mRNAData, collapseRow.method = "MaxMean", collapseRow.selectFewestMissing = TRUE)
@@ -120,7 +145,7 @@ aggregate.probes = FALSE
 	design <- cbind(S1=classVector_S1,S2=classVector_S2)
   
 	##... and contrast matrix
-	contrast.matrix = makeContrasts(S1-S2, levels=design)
+	contrast.matrix = makeContrasts(S2-S1, levels=design)
 	
   	print(contrast.matrix)
 	
@@ -146,7 +171,7 @@ aggregate.probes = FALSE
 	rownames(top.fit.ranked.decr) = NULL
 	
 	top.fit.ranked.decr.filt = top.fit.ranked.decr[1:numberOfMarkers,]
-	topgenes = cbind(gene.symbols[top.fit.ranked.decr.filt$ID], top.fit.ranked.decr.filt)
+	topgenes = cbind(gene.symbols[as.vector(top.fit.ranked.decr.filt$ID)], top.fit.ranked.decr.filt)
 	colnames(topgenes) = c("GENE_SYMBOL", "PROBE.ID", "logFC", "t", "P.value", "adj.P.val", "B")
 	rownames(topgenes) = NULL
 	
@@ -185,6 +210,10 @@ aggregate.probes = FALSE
 	
 	#Rename the first column to be "PROBE.ID".
 	colnames(finalHeatmapData)[1] <- 'PROBE.ID'
+	
+	#Performing row-wise z-score scaling
+	finalHeatmapData.zscore = t(scale(t(finalHeatmapData[,-1])))
+	finalHeatmapData.zscore = cbind(finalHeatmapData[,1], finalHeatmapData.zscore)
 	
 # 	#---------------------
  	#WRITE TO FILE

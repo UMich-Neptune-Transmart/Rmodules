@@ -7,7 +7,7 @@
     %{--help and title--}%
     <h2>
         Variable Selection
-        <a href='JavaScript:D2H_ShowHelp(1505,helpURL,"wndExternal",CTXT_DISPLAY_FULLHELP )'>
+        <a href='JavaScript:D2H_ShowHelp(1088,helpURL,"wndExternal",CTXT_DISPLAY_FULLHELP )'>
             <img src="${resource(dir: 'images', file: 'help/helpicon_white.jpg')}" alt="Help"/>
         </a>
     </h2>
@@ -40,7 +40,7 @@
                     <div class="highDimContainer">
                         <h3>Category</h3>
                         <div class="divInputLabel">Select a variable on which you would like to sort the cohort and
-                        drag it into the box. For example, "Cancer Stage".  If this variable is continuous (ex. Age),
+                        drag it into the box. For example, "Cancer Stage".  If this variable is continuous (e.g. Age),
                         then it should be "binned" using the option below.
                         This variable is not required.</div>
                         <div id='divCategoryVariable' class="queryGroupIncludeLong divInputBox"></div>
@@ -116,8 +116,9 @@
                 <fieldset class="inputFields">
                     <h3>Censoring Variable</h3>
                     <div class="divInputLabel">
-                        Select a variable and drag it into the box.
-                        Subjects within these categories (or numerical constraints) will be censored out of the plot.
+                        Drag the item for which to perform censoring in the analysis into this box. For example, when
+                        performing Overall survival analysis, drag 'Survival status = alive' into this box.
+                        This variable is not obligatory.
                     </div>
                     <div id='divCensoringVariable' class="queryGroupIncludeLong divInputBox"></div>
                     <div class="highDimBtns">

@@ -49,10 +49,10 @@ LogisticRegressionView.prototype.toggle_binning = function () {
  */
 LogisticRegressionView.prototype.get_form_params = function (form) {
 
-    var dependentVariableConceptCode = readConceptVariables("divIndependentVariable");
+    var dependentVariableConceptCode = readConceptVariables("divDependentVariable");
     var independentVariableConceptCode = readConceptVariables("divIndependentVariable");
     var groupByVariableConceptCode = readConceptVariables("divGroupByVariable");
-    var variablesConceptCode = dependentVariableConceptCode+"|"+groupByVariableConceptCode;
+    var variablesConceptCode = independentVariableConceptCode+"|"+groupByVariableConceptCode;
 
     var formParams = {
         jobType: 'LogisticRegression',
@@ -64,26 +64,24 @@ LogisticRegressionView.prototype.get_form_params = function (form) {
 
 ///////////////////////////////////////  VALIDATION
 
-    if(dependentVariableConceptCode == '')
+    if(independentVariableConceptCode == '')
     {
-        Ext.Msg.alert('Missing input!', 'Please drag one concept into the Numeric variable box.');
+        Ext.Msg.alert('Missing input!', 'Please drag one concept into the Independent Variable box.');
         return;
     }
 
-    var variableEle = Ext.get("divGroupByVariable");
-    var numericalVariableEle = Ext.get("divIndependentVariable");
-
-
+    var groupByVariableEle = Ext.get("divGroupByVariable");
+    var independentVariableEle = Ext.get("divIndependentVariable");
 
     //This will tell us the type of nodes drag into Probability box
-    var categoryNodeList = createNodeTypeArrayFromDiv(variableEle,"setnodetype")
-    var numericNodeList = createNodeTypeArrayFromDiv(numericalVariableEle,"setnodetype")
+    var categoryNodeList = createNodeTypeArrayFromDiv(groupByVariableEle,"setnodetype")
+    var numericNodeList = createNodeTypeArrayFromDiv(independentVariableEle,"setnodetype")
 
     //Across Trial/Navigate by study validation.
     //This will tell us which table the nodes came from. This is important because it tells us if they are modifier
     //nodes or regular concept codes. We use this information for validation and for passing to the jobs functions.
-    var categoryNodeType = createNodeTypeArrayFromDiv(variableEle,"concepttablename")
-    var numericNodeType = createNodeTypeArrayFromDiv(numericalVariableEle,"concepttablename")
+    var categoryNodeType = createNodeTypeArrayFromDiv(groupByVariableEle,"concepttablename")
+    var numericNodeType = createNodeTypeArrayFromDiv(independentVariableEle,"concepttablename")
 
     if (categoryNodeType.length > 1) {
         Ext.Msg.alert('Wrong input', 'The Category input box has nodes from both the \'Navigate By Study\' tree ' +
@@ -124,14 +122,14 @@ LogisticRegressionView.prototype.get_form_params = function (form) {
 
     if ((this.isNumerical(numericNodeList) || this.isHd(numericNodeList)) && (independentVariableConceptCode.indexOf("|") != -1)) {
         Ext.Msg.alert('Wrong input', 'For continuous data, you may only drag one node into the input boxes. ' +
-            'The Numeric input box has multiple nodes.');
+            'The Independent variable input box has multiple nodes.');
         return;
     }
 
     //If its categorical value than make sure you have atleast 2 values
     if (groupByVariableConceptCode == '' || (this.isCategorical(categoryNodeList) && groupByVariableEle.dom.childNodes.length < 2)) {
         Ext.Msg.alert('Missing input!', 'If categorical concept, than please drag at least two categorical ' +
-            'concept into the Probability  Concepts variable box.');
+            'concept into the Outcome variable input box.');
         return;
     }
 
@@ -189,8 +187,6 @@ LogisticRegressionView.prototype.get_form_params = function (form) {
         return;
     }
     //------------------------------------
-
-    this.load_binning_parameters(formParams);
 
     return formParams;
 }
@@ -295,6 +291,24 @@ LogisticRegressionView.prototype.manage_bins = function (newNumberOfBins) {
     this.update_manual_binning();
 }
 
+LogisticRegressionView.prototype.load_high_dimensional_parameters = function (formParams) {
+
+    var _independentGeneList = document.getElementById('independentPathway').value;
+    var _independentDataType = document.getElementById('independentVarDataType').value ?
+        document.getElementById('independentVarDataType').value : 'CLINICAL';
+
+    formParams["divIndependentVariableType"]     = _independentDataType;
+    formParams["divIndependentVariablePathway"]  = _independentGeneList;
+
+    var _groupByGeneList = document.getElementById('groupByPathway').value;
+    var _groupByDataType = document.getElementById('groupByVarDataType').value ?
+        document.getElementById('groupByVarDataType').value : 'CLINICAL';
+
+    formParams["divGroupByVariableType"]         = _groupByDataType;
+    formParams["divGroupByVariablePathway"]      = _groupByGeneList;
+
+    return true;
+}
 
 LogisticRegressionView.prototype.load_binning_parameters = function (formParams) {
     //These default to FALSE
