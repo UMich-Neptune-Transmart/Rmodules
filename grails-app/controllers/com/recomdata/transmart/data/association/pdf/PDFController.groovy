@@ -39,7 +39,7 @@ class PDFController {
 		// parse our markup into an xml Document
 		try {
 			String htmlStr = params.htmlStr
-			String pathStr =  grailsApplication.config.RModules.temporaryImageFolder
+			String pathStr =  grailsApplication.config.RModules.tempFolderDirectory
 			String css = pathStr+"css/datasetExplorer.css";
 			StringBuffer buf = new StringBuffer();
 			buf.append("<html><head><link rel='stylesheet' type='text/css' href='")
